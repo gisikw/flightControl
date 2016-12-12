@@ -2,8 +2,8 @@
 const blessed = require('blessed');
 const childProcess = require('child_process');
 const readline = require('readline');
-//const LOGFILE = `${__dirname}/../log.txt`;
-const LOGFILE = '/mnt/ksp/Ships/Script/test.log';
+const LOGFILE = `${__dirname}/../../log.txt`;
+//const LOGFILE = '/mnt/ksp/Ships/Script/test.log';
 
 const screen = blessed.screen({ smartCSR: true });
 const box = blessed.box({

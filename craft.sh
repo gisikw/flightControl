@@ -3,6 +3,7 @@
 
 echo "KSP Craft Running"
 echo "-----------------"
+rm log.txt
 
 rand() {
   echo "$RANDOM / 32767" | bc -l
