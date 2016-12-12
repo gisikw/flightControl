@@ -1,36 +1,20 @@
-// ncurses Widget
-const blessed = require('blessed');
-const childProcess = require('child_process');
-const readline = require('readline');
-const LOGFILE = `${__dirname}/../../log.txt`;
-//const LOGFILE = '/mnt/ksp/Ships/Script/test.log';
+import childProcess from 'child_process';
+import readline from 'readline';
+import { Server as WSServer } from 'ws';
+import displayScreen from './displayScreen';
 
-const screen = blessed.screen({ smartCSR: true });
-const box = blessed.box({
-  top: 'center',
-  left: 'center',
-  width: '60%',
-  height: '30%',
-  content: '',
-  tags: true,
-  border: { type: 'line' },
-  style: {
-    fg: 'white',
-    bg: 'black',
-    border: { fg: '#bada55' },
-  }
+const LOGFILE = process.env.NODE_ENV === 'production'
+  ? '/mnt/ksp/Ships/Script/test.log'
+  : `${__dirname}/../../log.txt`;
+
+let connections = [];
+
+const myScreen = displayScreen();
+const wss = new WSServer({port: 6400});
+wss.on('connection', (conn) => connections.push(conn));
+const child = childProcess.spawn('tail', ['-f', LOGFILE], {
+  stdio: [null, 'pipe', null]
 });
-
-const bgBox = blessed.box({
-  width: '100%',
-  height: '100%',
-  border: { type: 'line' },
-  style: { border: { fg: '#bada55' } },
-});
-
-screen.append(bgBox);
-screen.append(box);
-screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
 
 function deserialize(data) {
   return data
@@ -39,20 +23,17 @@ function deserialize(data) {
       ? acc.slice(0, acc.length-1).concat([[acc[acc.length-1], key]])
       : acc.concat(key)
     , [])
-    .reduce((acc, pair) => Object.assign({}, acc, { [pair[0]]: pair[1] }), {});
+    .reduce((acc, pair) => Object.assign({}, acc, { [pair[0]]: parseFloat(pair[1]) }), {});
 }
 
-function format(data) {
-  return Object.keys(data).reduce((str, key) => (
-    str.concat(`${key.toUpperCase()}: ${data[key]}\n`)
-  ), '');
-}
-
-readline.createInterface({ input:
-  childProcess.spawn('tail', ['-f', LOGFILE], {
-    stdio: [null, 'pipe', 'inherit']
-  }).stdout
-}).on('line', (line) => {
-  box.content = format(deserialize(line));
-  screen.render();
-});
+readline
+  .createInterface({ input: child.stdout })
+  .on('line', (line) => {
+    const data = deserialize(line);
+    myScreen.update(data);
+    connections.forEach((conn) => {
+      try {
+        conn.send(JSON.stringify(data));
+      } catch(e) {}
+    });
+  });
